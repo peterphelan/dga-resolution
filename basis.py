@@ -1,99 +1,64 @@
 """
 Basis construction for minimal free resolutions.
 
-This module provides functions to construct basis elements for the minimal
-free resolution of the binomial edge ideal of a complete graph.
+Provides functions to construct basis elements for the minimal free
+resolution of the binomial edge ideal of a complete graph K_n.
 """
 
 from sage.all import Combinations
+from utils import combination_to_tuple
 
 
-def combination_to_tuple(combination, total_degree):
+def s_basis_descriptors(homological_degree, n_vertices):
     """
-    Convert a combination to a tuple representing monomial degrees.
-    
+    Return S-basis element descriptors at a given homological degree.
+
+    These are the "labels" that identify each summand of the resolution:
+      - degree 0: [()]
+      - degree h >= 1: [((x_deg, y_deg), vertex_tuple), ...]
+
     Args:
-        combination: A tuple of integers representing positions
-        total_degree: The total degree sum required
-    
+        homological_degree: Homological degree h
+        n_vertices: Number of vertices n in K_n
+
     Returns:
-        A tuple with length len(combination)+1 and entries summing to total_degree
+        List of S-basis descriptors
     """
-    if not combination:
-        return (total_degree,)
-    
-    t = (combination[0],)
-    j = combination[0]
-    for i in combination[1:]:
-        t = t + (i - j - 1,)
-        j = i
-    t = t + (total_degree + len(combination) - (i + 1),)
-    
-    assert len(t) == len(combination) + 1
-    assert sum(t) == total_degree
-    
-    return t
+    if homological_degree == 0:
+        return [()]
+    return [
+        ((xd, homological_degree + 1 - xd), tuple(vc))
+        for xd in range(1, homological_degree + 1)
+        for vc in Combinations(range(n_vertices), homological_degree + 1)
+    ]
 
 
 def compute_basis_elements(homological_degree, ring_degree, n_vertices):
     """
     Compute k-basis elements for given homological and ring degrees.
-    
+
+    Each basis element is a pair (monomial_coeff, s_basis_descriptor).
+
     Args:
         homological_degree: Homological degree in the resolution
         ring_degree: Ring degree of the elements
-        n_vertices: Number of vertices in the complete graph
-    
+        n_vertices: Number of vertices in K_n
+
     Returns:
-        List of basis elements as tuples (monomial_coeff, s_basis_element)
+        List of basis elements as tuples (monomial_coeff, s_basis_descriptor)
     """
-    # Coefficient degree from the polynomial ring S
     coeff_degree = ring_degree if homological_degree == 0 else ring_degree - (homological_degree + 1)
-    
     if coeff_degree < 0:
         return []
-    
-    # S-basis elements
-    if homological_degree == 0:
-        s_basis = [()]
-    else:
-        vertex_combinations = Combinations(range(n_vertices), homological_degree + 1)
-        s_basis = [
-            ((x_deg, homological_degree + 1 - x_deg), tuple(vertex_comb))
-            for x_deg in range(1, homological_degree + 1)
-            for vertex_comb in vertex_combinations
-        ]
-    
-    # Coefficient monomials
-    coeff_combinations = Combinations(range(coeff_degree + 2*n_vertices - 1), 2*n_vertices - 1)
-    
-    basis = []
-    for comb in coeff_combinations:
-        for s_elem in s_basis:
-            # Create tuple of length 2*n_vertices
-            coeff_tuple = combination_to_tuple(comb, coeff_degree)
-            basis.append((coeff_tuple, s_elem))
-    
-    return basis
 
+    s_basis = s_basis_descriptors(homological_degree, n_vertices)
 
-def compute_s_basis_elements(homological_degree, n_vertices):
-    """
-    Compute S-basis elements for a given homological degree.
-    
-    Args:
-        homological_degree: Homological degree
-        n_vertices: Number of vertices
-    
-    Returns:
-        List of S-basis elements
-    """
-    if homological_degree == 0:
-        return [(2*n_vertices*(0,), ())]
-    
-    vertex_combinations = Combinations(range(n_vertices), homological_degree + 1)
+    coeff_combinations = Combinations(
+        range(coeff_degree + 2 * n_vertices - 1), 2 * n_vertices - 1
+    )
+
     return [
-        (2*n_vertices*(0,), ((x_deg, homological_degree + 1 - x_deg), tuple(vertex_comb)))
-        for x_deg in range(1, homological_degree + 1)
-        for vertex_comb in vertex_combinations
+        (combination_to_tuple(comb, coeff_degree), s_elem)
+        for comb in coeff_combinations
+        for s_elem in s_basis
     ]
